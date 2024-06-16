@@ -135,22 +135,3 @@ def get_track_details_by_ID(request,id):
     result = get(url,headers=headers)
     json_result = json.loads(result.content)
     return json_result
-
-def play_track(request,context_uri):
-    token = request.session['access_token']
-    print(get_devices(request))
-    url = "https://api.spotify.com/v1/me/player/play?device_id=4f6fa5c4fa1e32e710e9e11cd16e7a8c34b71e51"
-    headers = {"Authorization": "Bearer "+token,
-               "Content-Type": "application/json"
-               }
-    data = {
-        "context_uri": context_uri,
-        "offset": {
-        "position": 5
-        },
-        "position_ms": 0
-    }
-
-    response = post(url,headers=headers,data=data)
-    json_result = response.content
-    print(json_result)

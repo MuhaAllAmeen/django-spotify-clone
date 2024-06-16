@@ -92,17 +92,14 @@ def music(request,id):
     result = spotify_API.get_track_details_by_ID(request,id)
 
     # print(result)
-    device_id = request.META.get('HTTP_X_DEVICE', '')
-    print(device_id)
     track_duration = f"{int((result['duration_ms']/(1000*60))%60)}:{int((result['duration_ms']/1000)%60)}"
     context ={
         "album_cover":result['album']['images'][0]['url'],
         "track_name":result['name'],
         "track_uri":result['uri'],
         "artist_name":result['artists'][0]['name'],
-        "duration_text":track_duration,
+        "duration_text":result['duration_ms'],
         "token":request.session["access_token"]
     }
     # print(context)
-    # spotify_API.play_track(request,result['uri'])
     return render(request,'music.html',context)

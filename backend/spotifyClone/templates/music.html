@@ -54,24 +54,25 @@
                 <h3 class="artist-name">{{artist_name}}</h3>
             </div>
             <div class="player-controls">
-                <button id="prev" class="control-btn">&#9668;</button>
-                <button id="play-pause" class="control-btn play-btn">&#9658;</button>
-                <button id="next" class="control-btn">&#9658;</button>
+                <button id="prev" class="control-btn" disabled>&#9668;</button>
+                <button id="play-pause" class="control-btn play-btn" disabled>&#9658;</button>
+                <button id="next" class="control-btn" disabled>&#9658;</button>
             </div>
             <div class="progress-bar" id="progress-bar">
                 <div class="progress" id="progress"></div>
             </div>
             <div class="time-stamps">
                 <span id="current-time">0:00</span>
-                <span id="total-duration">{{duration_text}}</span>
+                <span id="total-duration">0:00</span>
             </div>
         </div>
     
-        <audio id="audio-player" src="https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"></audio>
     </div>
     <script src="https://sdk.scdn.co/spotify-player.js"></script>
     <script>
         const playPauseBtn = document.getElementById('play-pause');
+        const nextButton = document.getElementById('next')
+        const prevButton = document.getElementById('prev')
         let position_minutes = 0
         let position_seconds = 0
         let is_playing = false
@@ -88,6 +89,9 @@
         player.addListener('ready', ({ device_id }) => {
             device_ID = device_id
             console.log('Ready with Device ID', device_id);
+            playPauseBtn.disabled = false
+            nextButton.disabled = false
+            prevButton.disabled = false
         });
 
         // Not Ready
@@ -111,9 +115,10 @@
 }
         async function playTrack() {
             token = "{{token}}"
+            console.log('duration',currentTrackDurationms)
             response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${device_ID}`, {
                 method: 'PUT',
-                body: JSON.stringify({ uris: ["{{track_uri}}"] }),
+                body: JSON.stringify({ uris: ["{{track_uri}}"],position_ms: currentTrackDurationms!=null ? currentTrackDurationms : 0}),
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
@@ -121,7 +126,7 @@
             }).then(async response => {
                 if (response.status === 204) {
                     console.log('Track played successfully');
-                    // is_playing = true;
+                    is_playing = true;
                 } else if (response.status === 200) {
                     return response.json().then(data => {
                         console.log('Response data:', data);
@@ -153,7 +158,8 @@
             .then(data => {
                 if (data != null){
                     is_playing = data.is_playing
-                    console.log('Data received:', data);
+                    currentTrackDurationms = data.progress_ms
+                    console.log('Data received:', data.item.duration_ms);
                 }
             });
         }
@@ -168,64 +174,109 @@
             }).then(async response=>{
                 if (response.status === 204){
                     console.log('playback paused')
-                    // is_playing = false
+                    is_playing = false
                 }else{
                     console.log(response)
                 }
             })
         }
 
+        
+
     </script>
 
 
     <script>
+        document.getElementById('total-duration').innerText = millisToMinutesAndSeconds("{{duration_text}}")
         const audioPlayer = document.getElementById('audio-player');
-        // const playPauseBtn = document.getElementById('play-pause');
         const progressBar = document.getElementById('progress-bar');
         const progress = document.getElementById('progress');
         const currentTimeElement = document.getElementById('current-time');
         const totalDurationElement = document.getElementById('total-duration');
-        
+        let intervalId;
+        let currentTrackDuration;
+        let trackTotalDuration = "{{duration_text}}";
+        let currentTrackDurationms = 0;
+
         playPauseBtn.addEventListener('click', async () => {
-            await getPlaybackState()
+            // await getPlaybackState()
             console.log('is_playing',is_playing)
+            console.log('interval',intervalId)
+
             if (is_playing) {
-                pauseTrack()
+                await pauseTrack()
                 playPauseBtn.innerHTML = '&#10074;&#10074;'; // Change to pause icon
+                if (intervalId!=null){
+                    clearInterval(intervalId)
+                    console.log('cleared interval')
+                }
             } else {
-                playTrack()
+                await playTrack()
                 playPauseBtn.innerHTML = '&#9658;'; // Change to play icon
+                intervalId = setInterval(async ()=>{
+                    await getPlaybackState()
+                    changeProgressBarWidth()
+                },1000)
             }
         });
 
-        audioPlayer.addEventListener('timeupdate', () => {
-            const progressPercentage = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-            progress.style.width = `${progressPercentage}%`;
-            
-            // Update current time text
-            const currentMinutes = Math.floor(audioPlayer.currentTime / 60);
-            const currentSeconds = Math.floor(audioPlayer.currentTime - currentMinutes * 60);
-            currentTimeElement.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}`;
-        });
 
         progressBar.addEventListener('click', (e) => {
             const progressBarWidth = progressBar.clientWidth;
             const clickX = e.offsetX;
-            const duration = audioPlayer.duration;
-            
-            audioPlayer.currentTime = (clickX / progressBarWidth) * duration;
+            clickedDuration = Math.floor((clickX / progressBarWidth) * trackTotalDuration)
+            if (clickedDuration>0 && clickedDuration<trackTotalDuration){
+                currentTrackDurationms = clickedDuration
+                if (is_playing){
+                    playTrack()
+                }
+                changeProgressBarWidth()
+            }
+            console.log('progress bar',progressBarWidth,clickX,clickedDuration)
         });
 
         // Move forward 10 seconds
-        document.getElementById('next').addEventListener('click', () => {
-            audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 10);
+        nextButton.addEventListener('click',async () => {
+            currentTrackDurationms+=10000
+            if (currentTrackDurationms > trackTotalDuration){
+                currentTrackDurationms = trackTotalDuration
+            }
+            if (is_playing){
+                console.log('duration on next',currentTrackDurationms)   
+                await playTrack()
+            }
+            changeProgressBarWidth()
         });
         
 
         // Move back 10 seconds
-        document.getElementById('prev').addEventListener('click', () => {
-            audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
+        prevButton.addEventListener('click',async () => {
+            currentTrackDurationms-=10000
+            if (currentTrackDurationms<0){
+                currentTrackDurationms = 0
+            }
+            if (is_playing){
+                await playTrack()
+            }
+            changeProgressBarWidth()
         });
+
+        function millisToMinutesAndSeconds(millis) {
+            var minutes = Math.floor(millis / 60000);
+            var seconds = ((millis % 60000) / 1000).toFixed(0);
+            return (
+                seconds == 60 ?
+                (minutes+1) + ":00" :
+                minutes + ":" + (seconds < 10 ? "0" : "") + seconds
+            );        
+        }
+
+        function changeProgressBarWidth(){
+            currentTrackDuration = millisToMinutesAndSeconds(currentTrackDurationms)
+            currentTimeElement.textContent = currentTrackDuration;
+            const progressPercentage = (currentTrackDurationms / trackTotalDuration) * 100;
+            progress.style.width = `${progressPercentage}%`;
+        }
     </script>
 
 </body>
