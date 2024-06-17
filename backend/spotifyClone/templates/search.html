@@ -79,21 +79,44 @@
     <!-- Popular Tracks Section -->
     <div class="p-5">
       <br>
-      <h2 class="text-2xl font-bold mb-4">Search Results ({{search_results_count}} results)</h2>
+      <h2 class="text-2xl font-bold mb-4">Track Results ({{ track_results|length }} results)</h2>
       <div class="divide-y divide-gray-800">
         <!-- Single Track Row -->
-        {% for track in track_list %}
+        {% for track in track_results %}
         <div class="flex justify-between items-center py-3">
           <div class="flex items-center space-x-4">
             <img src="{{track.track_image}}" alt="{{track.track_name}}" class="w-12 h-12">
             <div>
-              <a href="/music/{{track.trackid}}">
+              <a href="/music/{{track.track_id}}">
                 <p class="text-base font-medium">{{track.track_name}}</p>
-                <p class="text-xs text-gray-400">{{track.artist_name}}</p>
+                <p class="text-xs text-gray-400">{{track.track_artist}}</p>
               </a>
             </div>
           </div>
-          <div class="text-gray-400">{{track.duration}}</div>
+          <div class="text-gray-400">{{track.track_duration}}</div>
+        </div>
+        {% endfor %}
+        <!-- Repeat for other tracks -->
+      </div>
+      <!-- <a href="#" class="text-green-500 text-sm">See more</a> -->
+    </div>
+
+    <div class="p-5">
+      <br>
+      <h2 class="text-2xl font-bold mb-4">Artist Results ({{ artist_results|length }} results)</h2>
+      <div class="divide-y divide-gray-800">
+        <!-- Single Track Row -->
+        {% for artist in artist_results %}
+        <div class="flex justify-between items-center py-3">
+          <div class="flex items-center space-x-4">
+            <img src="{{artist.artist_image}}" alt="{{artist.artist_name}}" class="w-12 h-12">
+            <div>
+              <a href="/profile/{{artist.artist_id}}">
+                <p class="text-base font-medium">{{artist.artist_name}}</p>
+              </a>
+            </div>
+          </div>
+          <div class="text-gray-400">{{artist.artist_popularity}}</div>
         </div>
         {% endfor %}
         <!-- Repeat for other tracks -->

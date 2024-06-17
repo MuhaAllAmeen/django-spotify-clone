@@ -79,26 +79,6 @@ def refresh_token(request):
         request.session['expires_at'] = datetime.now().timestamp()+ new_token_info['expires_in']
          
 
-
-def get_spotify_token():
-    client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-    auth_string = client_id + ":" + client_secret
-    auth_bytes = auth_string.encode("utf-8")
-    auth_base64 = str(base64.b64encode(auth_bytes
-    ),"utf-8")
-    url = "https://accounts.spotify.com/api/token"
-    headers = {
-        "Authorization": "Basic "+auth_base64,
-        "Content-Type": "application/x-www-form-urlencoded"
-
-    }
-    data = {"grant_type":"client_credentials"}
-    result = post(url, headers=headers, data=data)
-    json_result = json.loads(result.content)
-    token = json_result["access_token"]
-    return token
-
     
 def get_auth_header(token):
     return {"Authorization": "Bearer "+token}
@@ -131,6 +111,25 @@ def get_track_details_by_ID(request,id):
     checkAccessTokenExpiry(request)
     token = request.session["access_token"]
     url = f"https://api.spotify.com/v1/tracks/{id}?market=AE"
+    headers = get_auth_header(token)
+    result = get(url,headers=headers)
+    json_result = json.loads(result.content)
+    return json_result
+
+def get_artist_by_ID(request,id):
+    checkAccessTokenExpiry(request)
+    token = request.session["access_token"]
+    url = f"https://api.spotify.com/v1/artists/{id}"
+    headers = get_auth_header(token)
+    result = get(url,headers=headers)
+    json_result = json.loads(result.content)
+    return json_result
+
+def search(request, query):
+    checkAccessTokenExpiry(request)
+    token = request.session["access_token"]
+    query = query.replace(" ","+")
+    url = f"https://api.spotify.com/v1/search?q={query}&type=artist%2Ctrack&market=AE&limit=5&offset=0"
     headers = get_auth_header(token)
     result = get(url,headers=headers)
     json_result = json.loads(result.content)

@@ -3,15 +3,12 @@ from django.shortcuts import render,redirect
 from django.contrib import messages
 from django.contrib.auth.models import User, auth
 from django.contrib.auth.decorators import login_required
-# from spotify_API import get_spotify_token,get_songs_by_artist,search_for_artists
 from . import spotify_API
 
 
 @login_required(login_url='login')
 def index(request):
     if 'access_token' in request.session:
-        devices = spotify_API.get_devices(request)
-        print('devices',devices)
         artists_data = get_top_artists(request)
         songs_data = get_top_songs(request)
         return render (request,'index.html',{"top_artists":artists_data,"top_tracks":songs_data})    
@@ -25,7 +22,7 @@ def callback(request):
     return redirect(url)
 
 def get_top_artists(request):
-    artists = ["Drake", "Taylor Swift", "Dua Lipa", "Britney Spears", "Zack Knight"]
+    artists = ["Drake", "Taylor Swift", "Dua Lipa", "Britney Spears", "Zack Knight", "Tyga"]
     top_artists_details = []
     for artist in artists:
         result = spotify_API.search_for_artists(request,artist)
@@ -91,8 +88,6 @@ def logout(request):
 def music(request,id):
     result = spotify_API.get_track_details_by_ID(request,id)
 
-    # print(result)
-    track_duration = f"{int((result['duration_ms']/(1000*60))%60)}:{int((result['duration_ms']/1000)%60)}"
     context ={
         "album_cover":result['album']['images'][0]['url'],
         "track_name":result['name'],
@@ -101,5 +96,63 @@ def music(request,id):
         "duration_text":result['duration_ms'],
         "token":request.session["access_token"]
     }
-    # print(context)
     return render(request,'music.html',context)
+
+def profile(request,id):
+    result = spotify_API.get_artist_by_ID(request=request,id=id)
+    top_tracks = spotify_API.get_songs_by_artist(request,id)
+    top_tracks_list = []
+    for track in top_tracks:
+        track_duration = f"{int((track['duration_ms']/(1000*60))%60)}:{int((track['duration_ms']/1000)%60)}"
+        top_tracks_list.append(
+            {
+                "track_name":track["name"],
+                "track_duration":track_duration,
+                "track_image":track["album"]["images"][0]["url"],
+                "track_id":track["id"],
+                "track_popularity":track["popularity"]
+            }
+        )
+    context = {
+        "artist_name": result['name'],
+        "artist_image" : result['images'][0]['url'],
+        "artist_popularity": result['popularity'],
+        "top_tracks":top_tracks_list
+    }
+    return render (request, 'profile.html',context)
+
+def search(request):
+    if request.method == "POST":
+        query = request.POST['search_query']
+        result = spotify_API.search(request=request,query=query)
+        artist_results = result['artists']['items']
+        track_results = result['tracks']['items']
+        tracks_list= []
+        artists_list = []
+        for artist in artist_results:
+            if len(artist['images'])>0:
+                artists_list.append({
+                    "artist_name":artist["name"],
+                    "artist_id":artist["id"],
+                    "artist_popularity":artist["popularity"],
+                    "artist_image": artist['images'][0]['url']
+                })
+        for track in track_results:
+            track_duration = f"{int((track['duration_ms']/(1000*60))%60)}:{int((track['duration_ms']/1000)%60)}"
+            tracks_list.append(
+                {
+                    "track_name": track['name'],
+                    "track_id":track['id'],
+                    "track_popularity":track['popularity'],
+                    "track_duration":track_duration,
+                    "track_image":track['album']['images'][0]['url'],
+                    "track_artist": track['artists'][0]['name']
+                }
+            )
+        context = {
+            "track_results": tracks_list,
+            "artist_results": artists_list
+        }
+        return render(request,'search.html',context)
+    else:
+        return render(request,'search.html')
